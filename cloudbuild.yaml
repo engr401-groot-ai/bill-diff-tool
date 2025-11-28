@@ -1,0 +1,24 @@
+steps:
+  # 1. Build the Docker image
+  - name: "gcr.io/cloud-builders/docker"
+    args:
+      - "build"
+      - "-t"
+      - "us-west1-docker.pkg.dev/$PROJECT_ID/bill-diff-tool-repo/bill-diff-tool:latest"
+      - "-t"
+      - "us-west1-docker.pkg.dev/$PROJECT_ID/bill-diff-tool-repo/bill-diff-tool:$BUILD_ID"
+      - "."
+
+  # 2. Push the images to Artifact Registry
+  - name: "gcr.io/cloud-builders/docker"
+    args:
+      - "push"
+      - "--all-tags"
+      - "us-west1-docker.pkg.dev/$PROJECT_ID/bill-diff-tool-repo/bill-diff-tool"
+
+options:
+  logging: CLOUD_LOGGING_ONLY
+
+images:
+  - "us-west1-docker.pkg.dev/$PROJECT_ID/bill-diff-tool-repo/bill-diff-tool:latest"
+  - "us-west1-docker.pkg.dev/$PROJECT_ID/bill-diff-tool-repo/bill-diff-tool:$BUILD_ID"
