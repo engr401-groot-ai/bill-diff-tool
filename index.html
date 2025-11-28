@@ -114,8 +114,6 @@
         }
         
         // Load bills on page load
-        loadBills();
-
         document.addEventListener('DOMContentLoaded', () => {
             const billSelect = document.getElementById('billSelect');
             const btnRegenerate = document.getElementById('btn-regenerate');
@@ -235,7 +233,7 @@
             });
 
             // Load default bill on page load
-            loadBillComparison(false);
+            loadBills();
         });
     </script>
 </body>

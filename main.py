@@ -100,21 +100,10 @@ def style_css():
     return Response(status_code=404)
 
 # BACKEND ROUTES
-@app.get("/health")
-def health():
-    """Health check endpoint."""
-    return {
-        "status": "healthy",
-        "service": "Bill Diff Tool API",
-        "version": "1.0.0"
-    }
-
 @app.post("/compare-bills", response_model=BillResponse)
 def compare_bills(request: BillRequest):
     """
     Compare two versions of a bill using Google Gemini.
-    
-    Requires x-api-key header for authentication.
     """
     try:
         logger.info("Processing bill comparison request")
