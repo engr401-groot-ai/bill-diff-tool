@@ -9,6 +9,8 @@ RUN pip install --no-cache-dir -r requirements.txt
 # Copy application code
 COPY main.py ./
 COPY index.html ./
+COPY bills.json ./
+COPY style.css ./
 
 ENV PORT=8080
 EXPOSE 8080

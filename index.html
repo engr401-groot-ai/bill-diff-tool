@@ -1,0 +1,242 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Measure Comparison - University of Hawaii</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Open+Sans:wght@400;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link rel="stylesheet" href="/style.css">
+</head>
+<body>
+
+    <header>
+        <div class="container header-container">
+            <img src="https://govrel.hawaii.edu/mt/templates/system_2019/images/uh-nameplate.png" alt="University of Hawaii" class="uh-logo">
+            <div class="search-box">
+                <input type="text" placeholder="Search">
+                <button><i class="fas fa-search"></i></button>
+            </div>
+        </div>
+    </header>
+
+    <main class="container">
+        <h2><strong>Measure Comparison</strong></h2>
+
+        <div id="ai-summary-container" class="ai-summary-box">
+            <div class="ai-summary-header">
+                <h2>AI Summary</h2>
+                <button id="btn-regenerate" class="btn-regenerate" title="Regenerate summary">
+                    <i class="fas fa-sync-alt"></i>
+                </button>
+            </div>
+            <div id="ai-summary-content">
+                <!-- Content will be injected here -->
+            </div>
+            <div id="ai-loading" class="hidden">
+                <div class="gemini-loader"></div>
+                <p>Generating summary...</p>
+            </div>
+        </div>
+
+        <div class="url-section">
+            <p><strong>Original Measure URL:</strong> <span id="url-original" class="url-display">https://www.capitol.hawaii.gov/</span></p>
+            <p><strong>New Measure URL:</strong> <span id="url-new" class="url-display">https://www.capitol.hawaii.gov/</span></p>
+        </div>
+
+        <div class="controls">
+            <div class="input-group">
+                <select id="billSelect">
+                </select>
+            </div>
+        </div>
+
+        <div class="comparison-container">
+            <div class="bill-column">
+                <div id="content-original" class="bill-content"></div>
+            </div>
+            <div class="bill-column">
+                <div id="content-new" class="bill-content"></div>
+            </div>
+        </div>
+    </main>
+
+    <script>
+        // Load bill data from JSON file
+        let mockBills = [];
+        
+        // Fetch bills from JSON file
+        async function loadBills() {
+            try {
+                const response = await fetch('/bills.json');
+                if (!response.ok) {
+                    throw new Error('Failed to load bills');
+                }
+                const bills = await response.json();
+                
+                // Transform the JSON data to match our expected format
+                mockBills = bills.map(bill => ({
+                    name: bill.name,
+                    original: bill.oldVersion,
+                    revised: bill.newVersion,
+                    originalUrl: bill.originalUrl,
+                    newUrl: bill.newUrl
+                }));
+                
+                // Populate dropdown
+                populateDropdown();
+            } catch (error) {
+                console.error('Error loading bills:', error);
+                // Fallback to empty array if loading fails
+                mockBills = [];
+            }
+        }
+        
+        // Populate dropdown with bills
+        function populateDropdown() {
+            const billSelect = document.getElementById('billSelect');
+            billSelect.innerHTML = '';
+            
+            mockBills.forEach((bill, index) => {
+                const option = document.createElement('option');
+                option.value = index;
+                option.textContent = bill.name;
+                billSelect.appendChild(option);
+            });
+            
+            // Select first bill by default if available
+            if (mockBills.length > 0) {
+                billSelect.value = '0';
+                billSelect.dispatchEvent(new Event('change'));
+            }
+        }
+        
+        // Load bills on page load
+        loadBills();
+
+        document.addEventListener('DOMContentLoaded', () => {
+            const billSelect = document.getElementById('billSelect');
+            const btnRegenerate = document.getElementById('btn-regenerate');
+            const urlOriginalSpan = document.getElementById('url-original');
+            const urlNewSpan = document.getElementById('url-new');
+            const contentOriginalDiv = document.getElementById('content-original');
+            const contentNewDiv = document.getElementById('content-new');
+            const aiSummaryContent = document.getElementById('ai-summary-content');
+            const aiLoading = document.getElementById('ai-loading');
+
+            // Helper to get cache key for a bill
+            function getCacheKey(billIndex) {
+                return `bill_summary_${billIndex}`;
+            }
+
+            // Helper to get cached summary
+            function getCachedSummary(billIndex) {
+                const cached = localStorage.getItem(getCacheKey(billIndex));
+                return cached ? JSON.parse(cached) : null;
+            }
+
+            // Helper to cache summary
+            function cacheSummary(billIndex, summary) {
+                localStorage.setItem(getCacheKey(billIndex), JSON.stringify({
+                    summary: summary,
+                    timestamp: Date.now()
+                }));
+            }
+
+            // Helper to call comparison API
+            async function compareBills(text1, text2) {
+                try {
+                    const response = await fetch('/compare-bills', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json'
+                        },
+                        body: JSON.stringify({
+                            bill1_text: text1,
+                            bill2_text: text2
+                        })
+                    });
+
+                    if (!response.ok) {
+                        throw new Error(`Comparison failed: ${response.statusText}`);
+                    }
+
+                    const data = await response.json();
+                    return data.summary;
+                } catch (error) {
+                    console.error('Error comparing bills:', error);
+                    return 'Failed to generate summary. Please try again.';
+                }
+            }
+
+            // Main function to load and compare bills
+            async function loadBillComparison(forceRegenerate = false) {
+                const selectedIndex = billSelect.value;
+
+                // Load bill content
+                const bill = mockBills[selectedIndex];
+                urlOriginalSpan.textContent = bill.originalUrl;
+                urlNewSpan.textContent = bill.newUrl;3
+
+                // Display content immediately
+                contentOriginalDiv.innerText = bill.original;
+                contentNewDiv.innerText = bill.revised;
+
+                // Check cache first (unless forcing regenerate)
+                if (!forceRegenerate) {
+                    const cached = getCachedSummary(selectedIndex);
+                    if (cached) {
+                        const formattedSummary = cached.summary
+                            .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
+                            .replace(/\n/g, '<br>');
+                        aiSummaryContent.innerHTML = formattedSummary;
+                        return;
+                    }
+                }
+
+                // Generate new summary
+                aiSummaryContent.innerHTML = '';
+                aiLoading.classList.remove('hidden');
+
+                try {
+                    const summary = await compareBills(bill.original, bill.revised);
+                    
+                    // Cache the summary
+                    cacheSummary(selectedIndex, summary);
+                    
+                    // Display summary
+                    const formattedSummary = summary
+                        .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
+                        .replace(/\n/g, '<br>');
+
+                    aiSummaryContent.innerHTML = formattedSummary;
+
+                } catch (error) {
+                    alert(error.message);
+                    aiSummaryContent.innerHTML = 'Error generating summary.';
+                } finally {
+                    aiLoading.classList.add('hidden');
+                }
+            }
+
+            // Update URL fields and trigger comparison when bill is selected
+            billSelect.addEventListener('change', async () => {
+                await loadBillComparison(false);
+            });
+
+            // Regenerate button handler
+            btnRegenerate.addEventListener('click', async () => {
+                const selectedIndex = billSelect.value;
+                if (selectedIndex !== "") {
+                    await loadBillComparison(true);
+                }
+            });
+
+            // Load default bill on page load
+            loadBillComparison(false);
+        });
+    </script>
+</body>
+</html>

@@ -2,7 +2,6 @@
 .env
 
 # Service account key files
-*.json
 !cloudbuild.json
 
 # Python
