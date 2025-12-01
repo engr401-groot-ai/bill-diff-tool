@@ -5,6 +5,7 @@ from google.cloud import secretmanager
 from fastapi import FastAPI, HTTPException
 from fastapi.responses import RedirectResponse, FileResponse, HTMLResponse, Response
 from pydantic import BaseModel
+from typing import Optional
 import google.generativeai as genai
 
 # Configure logging
@@ -62,7 +63,7 @@ class BillRequest(BaseModel):
 class BillResponse(BaseModel):
     summary: str
     success: bool
-    error: str | None = None
+    error: Optional[str] = None
 
 # FRONT END ROUTES
 @app.get("/")
@@ -117,26 +118,27 @@ def compare_bills(request: BillRequest):
         
         # Create prompt for Gemini
         prompt = f"""Role: Senior Legislative Analyst for a University Government Relations Office.
-Task: Write a concise (about 100-250 words or 1500 characters) comparative summary of the changes between the two provided bill versions.
+    Task: Write a concise (about 100-250 words or 1500 characters) comparative summary of the changes between the two provided bill versions.
 
-Guidelines:
-1.  **Identify Bill Versions:** Look at the top of the provided text to identify the specific bill numbers (e.g., "SB 119", "SB 119 CD1"). Use these specific names in your summary. If names are not found, use "the original bill" and "the amended version".
-2.  **Single Paragraph:** Output the entire summary as a **single cohesive paragraph**. Do not split into multiple paragraphs.
-3.  **Focus on "Primary Differences":** Start immediately by stating the main differences (e.g., "The primary differences between [Bill A] and [Bill B] lie in...").
-4.  **Be Specific with Numbers:** Explicitly compare funding amounts, fiscal years, and dates.
-5.  **Structure vs. Content:** Note changes in organization (e.g., "consolidates funding") as well as content.
-6.  **Plain Language:** Use simple, clear language. Avoid formal or complex words like "predominantly", "itemized", "pursuant to". Use everyday words instead (e.g., "mainly", "listed", "under").
-7.  **Concise & Direct:** Professional, objective tone. No filler.
+    Guidelines:
+    1.  Identify Bill Versions: Look at the top of the provided text to identify the specific bill numbers (e.g., "SB 119", "SB 119 CD1"). Use these specific names in your summary. If names are not found, use "the original bill" and "the amended version".
+    2.  Single Paragraph: Output the entire summary as a single cohesive paragraph. Do not split into multiple paragraphs.
+    3.  Focus on "Primary Differences": Start immediately by stating the main differences (e.g., "The primary differences between [Bill A] and [Bill B] lie in...").
+    4.  Be Specific with Numbers: Explicitly compare funding amounts, fiscal years, and dates.
+    5.  Structure vs. Content: Note changes in organization (e.g., "consolidates funding") as well as content.
+    6.  Plain Language: Use simple, clear language. Avoid formal or complex words like "predominantly", "itemized", "pursuant to". Use everyday words instead (e.g., "mainly", "listed", "under").
+    7.  Concise & Direct: Professional, objective tone. No filler.
+    8.  No Hallucinations: Do not introduce any new facts, numbers, dates, or claims not present in the two provided bill texts. Rely only on the two bill texts as sources of truth.
 
-Example Style:
-"The primary differences between the original SB 119 and the final version, SB 119 CD1 (passed as Act 265), lie in the appropriation structure and the total funding amount for the second fiscal year. While both versions allocate $250,000 for fiscal year 2025-2026, the final CD1 version reduces the appropriation for fiscal year 2026-2027 from the originally proposed $430,000 to $350,000. Additionally, the original bill separated funding into specific line items for prerequisites, personnel, and supplies across multiple sections, whereas the final enacted version consolidates all funding into a single section with lump sums authorized for all program purposes."
+    Example Style:
+    The primary differences between the original SB 119 and the final version, SB 119 CD1 (passed as Act 265), lie in the appropriation structure and the total funding amount for the second fiscal year. While both versions allocate $250,000 for fiscal year 2025-2026, the final CD1 version reduces the appropriation for fiscal year 2026-2027 from the originally proposed $430,000 to $350,000. Additionally, the original bill separated funding into specific line items for prerequisites, personnel, and supplies across multiple sections, whereas the final enacted version consolidates all funding into a single section with lump sums authorized for all program purposes.
 
-**First Bill Text:**
-{request.bill1_text}
+    First Bill Text:
+    {request.bill1_text}
 
-**Second Bill Text:**
-{request.bill2_text}
-"""
+    Second Bill Text:
+    {request.bill2_text}
+    """
 
         model = genai.GenerativeModel("gemini-2.5-flash")
         response = model.generate_content(prompt)
