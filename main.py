@@ -1,7 +1,6 @@
 import os
 import logging
 from dotenv import load_dotenv
-from google.cloud import secretmanager
 from fastapi import FastAPI, HTTPException
 from fastapi.responses import RedirectResponse, FileResponse, HTMLResponse, Response
 from pydantic import BaseModel
@@ -23,31 +22,8 @@ app = FastAPI(
 )
 
 # Load environment variables
-def load_environment_variables() -> None:
-    """Load environment variables from Secret Manager (Cloud Run) or .env (local)."""
-    project_id = os.getenv("GCP_PROJECT_ID", "")
-    secret_name = f"projects/{project_id}/secrets/bill-diff-tool-env/versions/latest"
-
-    try:
-        client = secretmanager.SecretManagerServiceClient()
-        response = client.access_secret_version(request={"name": secret_name})
-        payload = response.payload.data.decode("utf-8")
-
-        for line in payload.strip().splitlines():
-            if not line or line.startswith("#") or "=" not in line:
-                continue
-            k, v = line.split("=", 1)
-            os.environ[k.strip()] = v.strip()
-
-        logger.info("✓ Loaded environment variables from Secret Manager")
-        return
-
-    except Exception as e:
-        logger.info(f"Secret Manager load failed ({e}); falling back to .env")
-        load_dotenv()
-        logger.info("✓ Loaded environment variables from .env (if present)")
-
-load_environment_variables()
+load_dotenv()
+logger.info("Loaded environment variables.")
 
 GEMINI_API_KEY = os.getenv("GEMINI_API_KEY", "")
 if GEMINI_API_KEY:

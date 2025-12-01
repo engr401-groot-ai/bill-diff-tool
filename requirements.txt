@@ -1,7 +1,6 @@
 fastapi
 uvicorn
 python-dotenv
-google-cloud-secret-manager
 google-generativeai
 pydantic
 requests
