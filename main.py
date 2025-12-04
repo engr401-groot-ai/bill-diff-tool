@@ -55,9 +55,7 @@ class SpeechResponse(BaseModel):
     error: Optional[str] = None
 
 def preprocess_text_for_speech(text: str) -> str:
-    """
-    Preprocesses text to expand legislative abbreviations for better TTS pronunciation.
-    """
+    """Preprocesses text to expand legislative abbreviations for better TTS pronunciation."""
     # List of replacements (Handles both standalone and number-preceding cases)
     replacements = [
         (r'\bHB\s*(?=\d)', 'House Bill '),
