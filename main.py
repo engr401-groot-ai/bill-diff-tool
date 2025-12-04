@@ -137,7 +137,10 @@ def compare_and_speak(request: BillRequest):
         audio_base64 = None
         try:
             client = texttospeech.TextToSpeechClient()
-            synthesis_input = texttospeech.SynthesisInput(text=summary_text)
+            synthesis_input = texttospeech.SynthesisInput(
+                text=summary_text,
+                prompt="Use legislative and governmental terminology. Pronounce bill abbreviations clearly: 'HB' as 'H B' or 'House Bill', 'SB' as 'S B' or 'Senate Bill', 'CD' as 'Conference Draft'. Speak in a professional, formal tone appropriate for legislative analysis."
+            )
             voice = texttospeech.VoiceSelectionParams(
                 language_code="en-US",
                 name="Kore",
@@ -146,7 +149,7 @@ def compare_and_speak(request: BillRequest):
             
             audio_config = texttospeech.AudioConfig(
                 audio_encoding=texttospeech.AudioEncoding.MP3,
-                speaking_rate=1.15
+                speaking_rate=1.25
             )
             
             speech_response = client.synthesize_speech(
