@@ -8,6 +8,7 @@ from typing import Optional
 import google.generativeai as genai
 from google.cloud import texttospeech
 import base64
+import re
 
 # Configure logging
 logging.basicConfig(
@@ -52,6 +53,34 @@ class SpeechResponse(BaseModel):
     audio_base64: str
     success: bool
     error: Optional[str] = None
+
+def preprocess_text_for_speech(text: str) -> str:
+    """
+    Preprocesses text to expand legislative abbreviations for better TTS pronunciation.
+    """
+    # List of replacements (Handles both standalone and number-preceding cases)
+    replacements = [
+        (r'\bHB\s*(?=\d)', 'House Bill '),
+        (r'\bHB\b', 'House Bill'),
+        (r'\bSB\s*(?=\d)', 'Senate Bill '),
+        (r'\bSB\b', 'Senate Bill'),
+        (r'\bHD\s*(?=\d)', 'House Draft '),
+        (r'\bHD\b', 'House Draft'),
+        (r'\bSD\s*(?=\d)', 'Senate Draft '),
+        (r'\bSD\b', 'Senate Draft'),
+        (r'\bCD\s*(?=\d)', 'Conference Draft '),
+        (r'\bCD\b', 'Conference Draft'),
+        (r'\bFD\s*(?=\d)', 'Final Draft '),
+        (r'\bFD\b', 'Final Draft'),
+        (r'\bGM\s*(?=\d)', 'Governor\'s Message '),
+        (r'\bGM\b', 'Governor\'s Message'),
+    ]
+    
+    processed_text = text
+    for pattern, replacement in replacements:
+        processed_text = re.sub(pattern, replacement, processed_text)
+        
+    return processed_text
 
 # FRONT END ROUTES
 @app.get("/")
@@ -137,9 +166,11 @@ def compare_and_speak(request: BillRequest):
         audio_base64 = None
         try:
             client = texttospeech.TextToSpeechClient()
+            
+            spoken_text = preprocess_text_for_speech(summary_text)
+            
             synthesis_input = texttospeech.SynthesisInput(
-                text=summary_text,
-                prompt="Use legislative and governmental terminology. Pronounce bill abbreviations clearly: 'HB' as 'H B' or 'House Bill', 'SB' as 'S B' or 'Senate Bill', 'CD' as 'Conference Draft'. Speak in a professional, formal tone appropriate for legislative analysis."
+                text=spoken_text
             )
             voice = texttospeech.VoiceSelectionParams(
                 language_code="en-US",
