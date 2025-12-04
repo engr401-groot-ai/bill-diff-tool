@@ -6,6 +6,8 @@ from fastapi.responses import RedirectResponse, FileResponse, HTMLResponse, Resp
 from pydantic import BaseModel
 from typing import Optional
 import google.generativeai as genai
+from google.cloud import texttospeech
+import base64
 
 # Configure logging
 logging.basicConfig(
@@ -32,12 +34,22 @@ if GEMINI_API_KEY:
 else:
     logger.warning("⚠ GEMINI_API_KEY not found - API calls will fail")
 
+# Request/Response Models
 class BillRequest(BaseModel):
     bill1_text: str
     bill2_text: str
 
 class BillResponse(BaseModel):
     summary: str
+    audio_base64: Optional[str] = None
+    success: bool
+    error: Optional[str] = None
+
+class SpeechRequest(BaseModel):
+    text: str
+
+class SpeechResponse(BaseModel):
+    audio_base64: str
     success: bool
     error: Optional[str] = None
 
@@ -77,66 +89,90 @@ def style_css():
     return Response(status_code=404)
 
 # BACKEND ROUTES
-@app.post("/compare-bills", response_model=BillResponse)
-def compare_bills(request: BillRequest):
-    """
-    Compare two versions of a bill using Google Gemini.
-    """
+@app.post("/compare-and-speak", response_model=BillResponse)
+def compare_and_speak(request: BillRequest):
+    """Compares two versions of a bill and generates audio from the comparison summary (google gemini 2.5 flash)."""
     try:
+        # 1. Generate Summary
         logger.info("Processing bill comparison request")
         
         # Validate inputs
         if not request.bill1_text.strip() or not request.bill2_text.strip():
-            raise HTTPException(
-                status_code=400,
-                detail="Both bill1_text and bill2_text must be non-empty"
-            )
-        
-        # Create prompt for Gemini
+            raise HTTPException(status_code=400, detail="Both bill texts must be provided")
+
         prompt = f"""Role: Senior Legislative Analyst for a University Government Relations Office.
-    Task: Write a concise (about 100-250 words or 1500 characters) comparative summary of the changes between the two provided bill versions.
+            Task: Write a concise (about 100 - 150 words or 1500 characters) comparative summary of the changes between the two provided bill versions.
 
-    Guidelines:
-    1.  Identify Bill Versions: Look at the top of the provided text to identify the specific bill numbers (e.g., "SB 119", "SB 119 CD1"). Use these specific names in your summary. If names are not found, use "the original bill" and "the amended version".
-    2.  Single Paragraph: Output the entire summary as a single cohesive paragraph. Do not split into multiple paragraphs.
-    3.  Focus on "Primary Differences": Start immediately by stating the main differences (e.g., "The primary differences between [Bill A] and [Bill B] lie in...").
-    4.  Be Specific with Numbers: Explicitly compare funding amounts, fiscal years, and dates.
-    5.  Structure vs. Content: Note changes in organization (e.g., "consolidates funding") as well as content.
-    6.  Plain Language: Use simple, clear language. Avoid formal or complex words like "predominantly", "itemized", "pursuant to". Use everyday words instead (e.g., "mainly", "listed", "under").
-    7.  Concise & Direct: Professional, objective tone. No filler.
-    8.  No Hallucinations: Do not introduce any new facts, numbers, dates, or claims not present in the two provided bill texts. Rely only on the two bill texts as sources of truth.
+            Guidelines:
+            1.  Identify Bill Versions: Look at the top of the provided text to identify the specific bill numbers (e.g., "SB 119", "SB 119 CD1"). Use these specific names in your summary. If names are not found, use "the original bill" and "the amended version".
+            2.  Single Paragraph: Output the entire summary as a single cohesive paragraph. Do not split into multiple paragraphs.
+            3.  Focus on "Primary Differences": Start immediately by stating the main differences (e.g., "The primary differences between [Bill A] and [Bill B] lie in...").
+            4.  Be Specific with Numbers: Explicitly compare funding amounts, fiscal years, and dates.
+            5.  Structure vs. Content: Note changes in organization (e.g., "consolidates funding") as well as content.
+            6.  Plain Language: Use simple, clear language. Avoid formal or complex words like "predominantly", "itemized", "pursuant to". Use everyday words instead (e.g., "mainly", "listed", "under").
+            7.  Concise & Direct: Professional, objective tone. No filler.
+            8.  No Hallucinations: Do not introduce any new facts, numbers, dates, or claims not present in the two provided bill texts. Rely only on the two bill texts as sources of truth.
+            9.  Striclty output plain text only: Do not use any markdown formatting. No bolding (**text**), no italics (*text*), no headers (#), no bullet points. Write in standard paragraph form only.
 
-    Example Style:
-    The primary differences between the original SB 119 and the final version, SB 119 CD1 (passed as Act 265), lie in the appropriation structure and the total funding amount for the second fiscal year. While both versions allocate $250,000 for fiscal year 2025-2026, the final CD1 version reduces the appropriation for fiscal year 2026-2027 from the originally proposed $430,000 to $350,000. Additionally, the original bill separated funding into specific line items for prerequisites, personnel, and supplies across multiple sections, whereas the final enacted version consolidates all funding into a single section with lump sums authorized for all program purposes.
+            Example Style:
+            The primary differences between the original SB 119 and the final version, SB 119 CD1 (passed as Act 265), lie in the appropriation structure and the total funding amount for the second fiscal year. While both versions allocate $250,000 for fiscal year 2025-2026, the final CD1 version reduces the appropriation for fiscal year 2026-2027 from the originally proposed $430,000 to $350,000. Additionally, the original bill separated funding into specific line items for prerequisites, personnel, and supplies across multiple sections, whereas the final enacted version consolidates all funding into a single section with lump sums authorized for all program purposes.
 
-    First Bill Text:
-    {request.bill1_text}
+            First Bill Text:
+            {request.bill1_text}
 
-    Second Bill Text:
-    {request.bill2_text}
-    """
+            Second Bill Text:
+            {request.bill2_text}
+            """
 
         model = genai.GenerativeModel("gemini-2.5-flash")
         response = model.generate_content(prompt)
         
         if not response or not response.text:
             raise Exception("Gemini API returned empty response")
+            
+        summary_text = response.text
+        logger.info("✓ Summary generated")
+
+        # 2. Generate Speech
+        audio_base64 = None
+        try:
+            client = texttospeech.TextToSpeechClient()
+            synthesis_input = texttospeech.SynthesisInput(text=summary_text)
+            voice = texttospeech.VoiceSelectionParams(
+                language_code="en-US",
+                name="Kore",
+                model_name="gemini-2.5-flash-tts"
+            )
+            
+            audio_config = texttospeech.AudioConfig(
+                audio_encoding=texttospeech.AudioEncoding.MP3,
+                speaking_rate=1.15
+            )
+            
+            speech_response = client.synthesize_speech(
+                input=synthesis_input, voice=voice, audio_config=audio_config
+            )
+            
+            audio_base64 = base64.b64encode(speech_response.audio_content).decode('utf-8')
+            logger.info("✓ Speech generated")
         
-        logger.info("✓ Bill comparison completed successfully")
-        
+        # Return the summary even if speech fails
+        except Exception as e:
+            logger.error(f"Failed to generate speech in combined endpoint: {e}")
+            audio_base64 = None
+
         return BillResponse(
-            summary=response.text,
+            summary=summary_text,
+            audio_base64=audio_base64,
             success=True,
             error=None
         )
-        
-    except HTTPException:
-        raise
+
     except Exception as e:
-        logger.error(f"Error comparing bills: {str(e)}")
+        logger.error(f"Error comparing and speaking: {str(e)}")
         return BillResponse(
             summary="",
+            audio_base64=None,
             success=False,
-            error=f"Failed to compare bills: {str(e)}"
+            error=f"Failed to process request: {str(e)}"
         )
-    

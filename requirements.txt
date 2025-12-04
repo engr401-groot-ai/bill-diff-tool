@@ -4,3 +4,4 @@ python-dotenv
 google-generativeai
 pydantic
 requests
+google-cloud-texttospeech>=2.29.0
