@@ -36,21 +36,13 @@ else:
     logger.warning("⚠ GEMINI_API_KEY not found - API calls will fail")
 
 # Request/Response Models
-class BillRequest(BaseModel):
+class CompareRequest(BaseModel):
     bill1_text: str
     bill2_text: str
 
-class BillResponse(BaseModel):
+class CompareResponse(BaseModel):
     summary: str
     audio_base64: Optional[str] = None
-    success: bool
-    error: Optional[str] = None
-
-class SpeechRequest(BaseModel):
-    text: str
-
-class SpeechResponse(BaseModel):
-    audio_base64: str
     success: bool
     error: Optional[str] = None
 
@@ -116,8 +108,8 @@ def style_css():
     return Response(status_code=404)
 
 # BACKEND ROUTES
-@app.post("/compare-and-speak", response_model=BillResponse)
-def compare_and_speak(request: BillRequest):
+@app.post("/compare-and-speak", response_model=CompareResponse)
+def compare_and_speak(request: CompareRequest):
     """Compares two versions of a bill and generates audio from the comparison summary (google gemini 2.5 flash)."""
     try:
         # 1. Generate Summary
@@ -193,7 +185,7 @@ def compare_and_speak(request: BillRequest):
             logger.error(f"Failed to generate speech in combined endpoint: {e}")
             audio_base64 = None
 
-        return BillResponse(
+        return CompareResponse(
             summary=summary_text,
             audio_base64=audio_base64,
             success=True,
@@ -202,7 +194,7 @@ def compare_and_speak(request: BillRequest):
 
     except Exception as e:
         logger.error(f"Error comparing and speaking: {str(e)}")
-        return BillResponse(
+        return CompareResponse(
             summary="",
             audio_base64=None,
             success=False,
