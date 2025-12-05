@@ -64,6 +64,16 @@ def preprocess_text_for_speech(text: str) -> str:
         (r'\bFD\b', 'Final Draft'),
         (r'\bGM\s*(?=\d)', 'Governor\'s Message '),
         (r'\bGM\b', 'Governor\'s Message'),
+
+        (r'["\'()*\[\]{}]', ''),
+        (r'§', 'Section '),
+        (r'&', ' and '),
+        (r'_', ' '),
+        (r'https?://\S+', ''),
+        (r'%', ' percent '),
+        (r'\+', ' plus '),
+        (r'=', ' equals '),
+        (r'\s+', ' '),
     ]
     
     processed_text = text
