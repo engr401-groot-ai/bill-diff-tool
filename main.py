@@ -164,13 +164,12 @@ def compare_and_speak(request: CompareRequest):
             )
             voice = texttospeech.VoiceSelectionParams(
                 language_code="en-US",
-                name="Kore",
-                model_name="gemini-2.5-flash-tts"
+                name="en-US-Standard-H"
             )
             
             audio_config = texttospeech.AudioConfig(
                 audio_encoding=texttospeech.AudioEncoding.MP3,
-                speaking_rate=1.25
+                speaking_rate=1
             )
             
             speech_response = client.synthesize_speech(
