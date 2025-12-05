@@ -142,7 +142,6 @@ def compare_and_speak(request: CompareRequest):
             7.  Concise & Direct: Professional, objective tone. No filler.
             8.  No Hallucinations: Do not introduce any new facts, numbers, dates, or claims not present in the two provided bill texts. Rely only on the two bill texts as sources of truth.
             9.  Striclty output plain text only: Do not use any markdown formatting. No bolding (**text**), no italics (*text*), no headers (#), no bullet points. Write in standard paragraph form only.
-            10. Standard Grammar: Use standard English grammar and capitalization. Do not uppercase words like "OR", "AND", or "NOT" for emphasis.
 
             Example Style:
             The primary differences between the original SB 119 and the final version, SB 119 CD1 (passed as Act 265), lie in the appropriation structure and the total funding amount for the second fiscal year. While both versions allocate $250,000 for fiscal year 2025-2026, the final CD1 version reduces the appropriation for fiscal year 2026-2027 from the originally proposed $430,000 to $350,000. Additionally, the original bill separated funding into specific line items for prerequisites, personnel, and supplies across multiple sections, whereas the final enacted version consolidates all funding into a single section with lump sums authorized for all program purposes.
